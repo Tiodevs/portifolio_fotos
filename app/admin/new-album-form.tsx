@@ -1,19 +1,72 @@
 "use client";
 
-import { useActionState } from "react";
-import { createAlbum, type ActionState } from "@/app/admin/actions";
-
-const initialState: ActionState = { status: "idle", message: "" };
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createBrowserClient } from "@/lib/supabase/client";
+import { compressImage } from "@/lib/compress";
+import { createAlbumMeta, savePhotos } from "@/app/admin/actions";
 
 const labelClass = "mb-2 block text-xs uppercase tracking-[0.2em] text-neutral-500";
 const inputClass =
   "w-full rounded-none border border-line bg-transparent px-4 py-3 text-base outline-none transition-colors focus:border-ink";
 
+type Status = { type: "idle" | "busy" | "success" | "error"; message: string };
+
 export default function NewAlbumForm() {
-  const [state, formAction, pending] = useActionState(createAlbum, initialState);
+  const router = useRouter();
+  const [status, setStatus] = useState<Status>({ type: "idle", message: "" });
+  const busy = status.type === "busy";
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const title = String(fd.get("title") || "").trim();
+    if (!title) {
+      setStatus({ type: "error", message: "Informe um titulo." });
+      return;
+    }
+    const files = (fd.getAll("photos") as File[]).filter((f) => f && f.size > 0);
+
+    setStatus({ type: "busy", message: "Criando album..." });
+    const meta = await createAlbumMeta({
+      title,
+      description: String(fd.get("description") || ""),
+      album_date: String(fd.get("album_date") || ""),
+      category: String(fd.get("category") || "home"),
+    });
+    if (meta.error || !meta.id) {
+      setStatus({ type: "error", message: meta.error || "Erro ao criar album." });
+      return;
+    }
+
+    try {
+      const supabase = createBrowserClient();
+      const items: { url: string; width: number; height: number }[] = [];
+      for (let i = 0; i < files.length; i++) {
+        setStatus({ type: "busy", message: `Enviando foto ${i + 1} de ${files.length}...` });
+        const { blob, width, height } = await compressImage(files[i]);
+        const path = `${meta.id}/${crypto.randomUUID()}.webp`;
+        const { error } = await supabase.storage
+          .from("photos")
+          .upload(path, blob, { contentType: "image/webp", upsert: false });
+        if (error) throw new Error(error.message);
+        const url = supabase.storage.from("photos").getPublicUrl(path).data.publicUrl;
+        items.push({ url, width, height });
+      }
+      const res = await savePhotos(meta.id, items);
+      if (res.error) throw new Error(res.error);
+
+      form.reset();
+      setStatus({ type: "success", message: `Album "${title}" criado com ${items.length} foto(s).` });
+      router.refresh();
+    } catch (err) {
+      setStatus({ type: "error", message: err instanceof Error ? err.message : "Erro no upload." });
+    }
+  }
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <label className={labelClass}>Titulo</label>
         <input name="title" required className={inputClass} placeholder="Nome do album" />
@@ -21,12 +74,7 @@ export default function NewAlbumForm() {
 
       <div>
         <label className={labelClass}>Descricao</label>
-        <textarea
-          name="description"
-          rows={3}
-          className={inputClass}
-          placeholder="Um breve texto sobre o album (opcional)"
-        />
+        <textarea name="description" rows={3} className={inputClass} placeholder="Um breve texto (opcional)" />
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2">
@@ -56,21 +104,23 @@ export default function NewAlbumForm() {
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={busy}
         className="w-full bg-ink px-6 py-4 text-xs uppercase tracking-[0.2em] text-paper transition-opacity hover:opacity-80 disabled:opacity-50"
       >
-        {pending ? "Enviando..." : "Criar album"}
+        {busy ? "Processando..." : "Criar album"}
       </button>
 
-      {state.status !== "idle" && (
+      {status.type !== "idle" && (
         <p
           className={`border px-4 py-3 text-sm ${
-            state.status === "success"
+            status.type === "error"
+              ? "border-red-700 text-red-700"
+              : status.type === "success"
               ? "border-green-700 text-green-700"
-              : "border-red-700 text-red-700"
+              : "border-line text-neutral-600"
           }`}
         >
-          {state.message}
+          {status.message}
         </p>
       )}
     </form>

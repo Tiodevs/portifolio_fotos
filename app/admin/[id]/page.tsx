@@ -2,14 +2,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getAlbum } from "@/lib/albums";
-import {
-  updateAlbum,
-  addPhotos,
-  deletePhoto,
-  setCover,
-  movePhoto,
-} from "@/app/admin/actions";
+import { updateAlbum, deletePhoto, setCover, movePhoto } from "@/app/admin/actions";
 import ConfirmForm from "@/app/admin/confirm-form";
+import AddPhotosForm from "@/app/admin/add-photos-form";
 
 export const dynamic = "force-dynamic";
 
@@ -32,32 +27,21 @@ export default async function EditAlbumPage({
     <div className="px-6 py-16 md:px-10">
       <header className="mb-16 border-b border-line pb-10">
         <div className="mb-4 flex items-center justify-between">
-          <Link
-            href="/admin"
-            className="text-xs uppercase tracking-[0.2em] underline underline-offset-4 hover:opacity-60"
-          >
+          <Link href="/admin" className="text-xs uppercase tracking-[0.2em] underline underline-offset-4 hover:opacity-60">
             Voltar
           </Link>
-          <Link
-            href={`/projetos/${album.id}`}
-            target="_blank"
-            className="text-xs uppercase tracking-[0.2em] underline underline-offset-4 hover:opacity-60"
-          >
+          <Link href={`/projetos/${album.id}`} target="_blank" className="text-xs uppercase tracking-[0.2em] underline underline-offset-4 hover:opacity-60">
             Ver pagina
           </Link>
         </div>
-        <p className="mb-3 text-xs uppercase tracking-[0.3em] text-neutral-500">
-          Editando album
-        </p>
+        <p className="mb-3 text-xs uppercase tracking-[0.3em] text-neutral-500">Editando album</p>
         <h1 className="display text-5xl md:text-7xl">{album.title}</h1>
       </header>
 
       <div className="grid gap-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="space-y-16">
           <section>
-            <h2 className="mb-6 text-xs uppercase tracking-[0.3em] text-neutral-500">
-              Dados do album
-            </h2>
+            <h2 className="mb-6 text-xs uppercase tracking-[0.3em] text-neutral-500">Dados do album</h2>
             <form action={updateAlbum} className="space-y-6">
               <input type="hidden" name="id" value={album.id} />
               <div>
@@ -66,22 +50,12 @@ export default async function EditAlbumPage({
               </div>
               <div>
                 <label className={labelClass}>Descricao</label>
-                <textarea
-                  name="description"
-                  rows={3}
-                  defaultValue={album.description ?? ""}
-                  className={inputClass}
-                />
+                <textarea name="description" rows={3} defaultValue={album.description ?? ""} className={inputClass} />
               </div>
               <div className="grid gap-6 sm:grid-cols-2">
                 <div>
                   <label className={labelClass}>Data</label>
-                  <input
-                    type="date"
-                    name="album_date"
-                    defaultValue={album.album_date ?? ""}
-                    className={inputClass}
-                  />
+                  <input type="date" name="album_date" defaultValue={album.album_date ?? ""} className={inputClass} />
                 </div>
                 <div>
                   <label className={labelClass}>Onde aparece</label>
@@ -91,42 +65,20 @@ export default async function EditAlbumPage({
                   </select>
                 </div>
               </div>
-              <button
-                type="submit"
-                className="w-full bg-ink px-6 py-4 text-xs uppercase tracking-[0.2em] text-paper transition-opacity hover:opacity-80"
-              >
+              <button type="submit" className="w-full bg-ink px-6 py-4 text-xs uppercase tracking-[0.2em] text-paper transition-opacity hover:opacity-80">
                 Salvar alteracoes
               </button>
             </form>
           </section>
 
           <section>
-            <h2 className="mb-6 text-xs uppercase tracking-[0.3em] text-neutral-500">
-              Adicionar fotos
-            </h2>
-            <form action={addPhotos} className="space-y-4">
-              <input type="hidden" name="album_id" value={album.id} />
-              <input
-                type="file"
-                name="photos"
-                multiple
-                accept="image/*"
-                className="block w-full text-sm text-neutral-600 file:mr-4 file:cursor-pointer file:border file:border-ink file:bg-transparent file:px-4 file:py-2 file:text-xs file:uppercase file:tracking-[0.15em] hover:file:bg-ink hover:file:text-paper"
-              />
-              <button
-                type="submit"
-                className="border border-ink px-6 py-3 text-xs uppercase tracking-[0.2em] transition-colors hover:bg-ink hover:text-paper"
-              >
-                Enviar fotos
-              </button>
-            </form>
+            <h2 className="mb-6 text-xs uppercase tracking-[0.3em] text-neutral-500">Adicionar fotos</h2>
+            <AddPhotosForm albumId={album.id} />
           </section>
         </div>
 
         <section>
-          <h2 className="mb-6 text-xs uppercase tracking-[0.3em] text-neutral-500">
-            Fotos ({photos.length})
-          </h2>
+          <h2 className="mb-6 text-xs uppercase tracking-[0.3em] text-neutral-500">Fotos ({photos.length})</h2>
           {photos.length === 0 ? (
             <p className="border border-dashed border-line px-6 py-12 text-center text-neutral-500">
               Nenhuma foto ainda. Adicione ao lado.
@@ -138,13 +90,7 @@ export default async function EditAlbumPage({
                 return (
                   <li key={photo.id} className="group">
                     <div className="relative aspect-square overflow-hidden bg-neutral-200">
-                      <Image
-                        src={photo.url}
-                        alt=""
-                        fill
-                        sizes="200px"
-                        className="object-cover transition duration-500"
-                      />
+                      <Image src={photo.url} alt="" fill sizes="200px" className="object-cover" />
                       {isCover && (
                         <span className="absolute left-2 top-2 bg-ink px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-paper">
                           Capa
@@ -156,12 +102,7 @@ export default async function EditAlbumPage({
                             <input type="hidden" name="album_id" value={album.id} />
                             <input type="hidden" name="id" value={photo.id} />
                             <input type="hidden" name="direction" value="up" />
-                            <button
-                              type="submit"
-                              disabled={index === 0}
-                              aria-label="Mover para tras"
-                              className="flex h-7 w-7 items-center justify-center bg-paper text-ink transition hover:bg-white disabled:opacity-30"
-                            >
+                            <button type="submit" disabled={index === 0} aria-label="Mover para tras" className="flex h-7 w-7 items-center justify-center bg-paper text-ink transition hover:bg-white disabled:opacity-30">
                               &lsaquo;
                             </button>
                           </form>
@@ -169,12 +110,7 @@ export default async function EditAlbumPage({
                             <input type="hidden" name="album_id" value={album.id} />
                             <input type="hidden" name="id" value={photo.id} />
                             <input type="hidden" name="direction" value="down" />
-                            <button
-                              type="submit"
-                              disabled={index === photos.length - 1}
-                              aria-label="Mover para frente"
-                              className="flex h-7 w-7 items-center justify-center bg-paper text-ink transition hover:bg-white disabled:opacity-30"
-                            >
+                            <button type="submit" disabled={index === photos.length - 1} aria-label="Mover para frente" className="flex h-7 w-7 items-center justify-center bg-paper text-ink transition hover:bg-white disabled:opacity-30">
                               &rsaquo;
                             </button>
                           </form>
@@ -183,11 +119,7 @@ export default async function EditAlbumPage({
                           <input type="hidden" name="id" value={photo.id} />
                           <input type="hidden" name="album_id" value={album.id} />
                           <input type="hidden" name="url" value={photo.url} />
-                          <button
-                            type="submit"
-                            aria-label="Excluir foto"
-                            className="flex h-7 w-7 items-center justify-center bg-paper text-red-700 transition hover:bg-white"
-                          >
+                          <button type="submit" aria-label="Excluir foto" className="flex h-7 w-7 items-center justify-center bg-paper text-red-700 transition hover:bg-white">
                             &times;
                           </button>
                         </ConfirmForm>
@@ -197,10 +129,7 @@ export default async function EditAlbumPage({
                       <form action={setCover} className="mt-2">
                         <input type="hidden" name="album_id" value={album.id} />
                         <input type="hidden" name="url" value={photo.url} />
-                        <button
-                          type="submit"
-                          className="w-full border border-line px-2 py-1 text-[10px] uppercase tracking-[0.15em] transition-colors hover:border-ink"
-                        >
+                        <button type="submit" className="w-full border border-line px-2 py-1 text-[10px] uppercase tracking-[0.15em] transition-colors hover:border-ink">
                           Definir capa
                         </button>
                       </form>

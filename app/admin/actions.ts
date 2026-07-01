@@ -1,67 +1,17 @@
 "use server";
 
-import { randomUUID } from "crypto";
-import sharp from "sharp";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { Photo } from "@/lib/types";
 
-type SupabaseAdmin = ReturnType<typeof createAdminClient>;
-
-export type ActionState = {
-  status: "idle" | "success" | "error";
-  message: string;
-};
-
 const BUCKET = "photos";
-const MAX_DIMENSION = 2400;
-const WEBP_QUALITY = 82;
 
 function storagePathFromUrl(url: string): string | null {
   const marker = `/${BUCKET}/`;
   const idx = url.indexOf(marker);
   if (idx === -1) return null;
   return url.slice(idx + marker.length);
-}
-
-async function toWebp(file: File): Promise<Buffer> {
-  const input = Buffer.from(await file.arrayBuffer());
-  try {
-    return await sharp(input)
-      .rotate()
-      .resize({
-        width: MAX_DIMENSION,
-        height: MAX_DIMENSION,
-        fit: "inside",
-        withoutEnlargement: true,
-      })
-      .webp({ quality: WEBP_QUALITY })
-      .toBuffer();
-  } catch {
-    throw new Error(`Nao foi possivel processar a imagem "${file.name}".`);
-  }
-}
-
-async function uploadFiles(
-  supabase: SupabaseAdmin,
-  albumId: string,
-  files: File[],
-  startOrder: number
-) {
-  const rows: { album_id: string; url: string; sort_order: number }[] = [];
-  let order = startOrder;
-  for (const file of files) {
-    const webp = await toWebp(file);
-    const path = `${albumId}/${randomUUID()}.webp`;
-    const { error } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, webp, { contentType: "image/webp", upsert: false });
-    if (error) throw new Error(`Upload falhou: ${error.message}`);
-    const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
-    rows.push({ album_id: albumId, url: pub.publicUrl, sort_order: order++ });
-  }
-  return rows;
 }
 
 function revalidateAll(albumId?: string) {
@@ -71,57 +21,81 @@ function revalidateAll(albumId?: string) {
   if (albumId) revalidatePath(`/admin/${albumId}`);
 }
 
-export async function createAlbum(
-  _prev: ActionState,
-  formData: FormData
-): Promise<ActionState> {
+export async function createAlbumMeta(input: {
+  title: string;
+  description: string;
+  album_date: string;
+  category: string;
+}): Promise<{ id?: string; error?: string }> {
   try {
     const supabase = createAdminClient();
-    const title = String(formData.get("title") || "").trim();
-    const description = String(formData.get("description") || "").trim();
-    const albumDate = String(formData.get("album_date") || "") || null;
-    const category = String(formData.get("category") || "home") as
-      | "home"
-      | "personal";
-    if (!title) return { status: "error", message: "Informe um titulo." };
+    const title = input.title.trim();
+    if (!title) return { error: "Informe um titulo." };
+    const category = input.category === "personal" ? "personal" : "home";
 
-    const files = (formData.getAll("photos") as File[]).filter(
-      (f) => f && f.size > 0
-    );
-
-    const { data: album, error } = await supabase
+    const { data, error } = await supabase
       .from("albums")
       .insert({
         title,
-        description: description || null,
-        album_date: albumDate,
+        description: input.description.trim() || null,
+        album_date: input.album_date || null,
         category,
       })
-      .select()
+      .select("id")
       .single();
-    if (error || !album) {
-      return { status: "error", message: error?.message || "Erro ao criar." };
-    }
+    if (error || !data) return { error: error?.message || "Erro ao criar album." };
 
-    const rows = await uploadFiles(supabase, album.id, files, 0);
-    if (rows.length > 0) {
-      await supabase.from("photos").insert(rows);
+    revalidateAll(data.id);
+    return { id: data.id };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Erro inesperado." };
+  }
+}
+
+export async function savePhotos(
+  albumId: string,
+  items: { url: string; width: number; height: number }[]
+): Promise<{ error?: string }> {
+  try {
+    if (!albumId) return { error: "Album invalido." };
+    if (items.length === 0) return {};
+    const supabase = createAdminClient();
+
+    const { data: existing } = await supabase
+      .from("photos")
+      .select("sort_order")
+      .eq("album_id", albumId)
+      .order("sort_order", { ascending: false })
+      .limit(1);
+    let order = existing && existing.length > 0 ? existing[0].sort_order + 1 : 0;
+
+    const rows = items.map((it) => ({
+      album_id: albumId,
+      url: it.url,
+      width: it.width,
+      height: it.height,
+      sort_order: order++,
+    }));
+
+    const { error } = await supabase.from("photos").insert(rows);
+    if (error) return { error: error.message };
+
+    const { data: album } = await supabase
+      .from("albums")
+      .select("cover_url")
+      .eq("id", albumId)
+      .single();
+    if (album && !album.cover_url) {
       await supabase
         .from("albums")
         .update({ cover_url: rows[0].url })
-        .eq("id", album.id);
+        .eq("id", albumId);
     }
 
-    revalidateAll(album.id);
-    return {
-      status: "success",
-      message: `Album "${title}" criado com ${rows.length} foto(s).`,
-    };
+    revalidateAll(albumId);
+    return {};
   } catch (err) {
-    return {
-      status: "error",
-      message: err instanceof Error ? err.message : "Erro inesperado.",
-    };
+    return { error: err instanceof Error ? err.message : "Erro inesperado." };
   }
 }
 
@@ -148,43 +122,6 @@ export async function updateAlbum(formData: FormData) {
 
   revalidateAll(id);
   redirect(`/admin/${id}`);
-}
-
-export async function addPhotos(formData: FormData) {
-  const supabase = createAdminClient();
-  const albumId = String(formData.get("album_id"));
-  if (!albumId) return;
-  const files = (formData.getAll("photos") as File[]).filter(
-    (f) => f && f.size > 0
-  );
-  if (files.length === 0) redirect(`/admin/${albumId}`);
-
-  const { data: existing } = await supabase
-    .from("photos")
-    .select("sort_order")
-    .eq("album_id", albumId)
-    .order("sort_order", { ascending: false })
-    .limit(1);
-  const startOrder =
-    existing && existing.length > 0 ? existing[0].sort_order + 1 : 0;
-
-  const rows = await uploadFiles(supabase, albumId, files, startOrder);
-  if (rows.length > 0) {
-    await supabase.from("photos").insert(rows);
-    const { data: album } = await supabase
-      .from("albums")
-      .select("cover_url")
-      .eq("id", albumId)
-      .single();
-    if (album && !album.cover_url) {
-      await supabase
-        .from("albums")
-        .update({ cover_url: rows[0].url })
-        .eq("id", albumId);
-    }
-  }
-  revalidateAll(albumId);
-  redirect(`/admin/${albumId}`);
 }
 
 export async function deletePhoto(formData: FormData) {

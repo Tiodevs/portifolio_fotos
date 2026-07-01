@@ -15,4 +15,6 @@ export interface Photo {
   album_id: string;
   url: string;
   sort_order: number;
+  width: number | null;
+  height: number | null;
 }

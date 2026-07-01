@@ -13,9 +13,10 @@ export default function AlbumGrid({ photos }: { photos: Photo[] }) {
           <Image
             src={photo.url}
             alt=""
-            width={900}
-            height={1100}
-            sizes="(max-width: 640px) 100vw, 50vw"
+            width={photo.width ?? 1200}
+            height={photo.height ?? 1500}
+            quality={90}
+            sizes="(max-width: 640px) 100vw, 600px"
             className="h-auto w-full"
           />
         </div>
