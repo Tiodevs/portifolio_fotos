@@ -143,7 +143,7 @@ export default async function EditAlbumPage({
                         alt=""
                         fill
                         sizes="200px"
-                        className="object-cover grayscale transition duration-500 group-hover:grayscale-0"
+                        className="object-cover transition duration-500"
                       />
                       {isCover && (
                         <span className="absolute left-2 top-2 bg-ink px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-paper">

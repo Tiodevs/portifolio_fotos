@@ -16,7 +16,7 @@ export default function AlbumGrid({ photos }: { photos: Photo[] }) {
             width={900}
             height={1100}
             sizes="(max-width: 640px) 100vw, 50vw"
-            className="h-auto w-full grayscale"
+            className="h-auto w-full"
           />
         </div>
       ))}

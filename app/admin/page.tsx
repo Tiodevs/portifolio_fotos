@@ -56,7 +56,7 @@ export default async function AdminPage() {
                         alt=""
                         fill
                         sizes="80px"
-                        className="object-cover grayscale transition duration-500 group-hover:grayscale-0"
+                        className="object-cover transition duration-500"
                       />
                     )}
                   </div>

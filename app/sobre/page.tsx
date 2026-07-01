@@ -11,7 +11,7 @@ export default function SobrePage() {
             alt="Minha foto"
             fill
             sizes="(max-width: 768px) 100vw, 40vw"
-            className="object-cover grayscale"
+            className="object-cover"
           />
         </div>
         <div className="space-y-6 text-lg leading-relaxed">

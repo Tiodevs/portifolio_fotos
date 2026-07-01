@@ -9,7 +9,7 @@ export default async function Home() {
     <div>
       <section className="px-6 pt-8 pb-16 md:px-10">
         <h1 className="display text-[15vw] leading-[0.85] md:text-[5vw]">
-        Ensaio  de  fotos  Felipe
+        Felipe Santos, Fotos
         </h1>
         <div className="mt-10 max-w-xl space-y-8">
           <p className="text-lg leading-relaxed">

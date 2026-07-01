@@ -13,7 +13,7 @@ export default function AlbumCard({ album }: { album: Album }) {
             alt={album.title}
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
-            className="object-cover grayscale transition duration-500 group-hover:scale-105"
+            className="object-cover transition duration-500 group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-neutral-500">

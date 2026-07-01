@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
+import sharp from "sharp";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -14,12 +15,32 @@ export type ActionState = {
 };
 
 const BUCKET = "photos";
+const MAX_DIMENSION = 2400;
+const WEBP_QUALITY = 82;
 
 function storagePathFromUrl(url: string): string | null {
   const marker = `/${BUCKET}/`;
   const idx = url.indexOf(marker);
   if (idx === -1) return null;
   return url.slice(idx + marker.length);
+}
+
+async function toWebp(file: File): Promise<Buffer> {
+  const input = Buffer.from(await file.arrayBuffer());
+  try {
+    return await sharp(input)
+      .rotate()
+      .resize({
+        width: MAX_DIMENSION,
+        height: MAX_DIMENSION,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: WEBP_QUALITY })
+      .toBuffer();
+  } catch {
+    throw new Error(`Nao foi possivel processar a imagem "${file.name}".`);
+  }
 }
 
 async function uploadFiles(
@@ -31,15 +52,11 @@ async function uploadFiles(
   const rows: { album_id: string; url: string; sort_order: number }[] = [];
   let order = startOrder;
   for (const file of files) {
-    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-    const path = `${albumId}/${randomUUID()}.${ext}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const webp = await toWebp(file);
+    const path = `${albumId}/${randomUUID()}.webp`;
     const { error } = await supabase.storage
       .from(BUCKET)
-      .upload(path, buffer, {
-        contentType: file.type || "image/jpeg",
-        upsert: false,
-      });
+      .upload(path, webp, { contentType: "image/webp", upsert: false });
     if (error) throw new Error(`Upload falhou: ${error.message}`);
     const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
     rows.push({ album_id: albumId, url: pub.publicUrl, sort_order: order++ });
