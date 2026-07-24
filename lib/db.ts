@@ -4,11 +4,23 @@ type Sql = ReturnType<typeof postgres>;
 
 const globalForDb = globalThis as unknown as { sql?: Sql };
 
+/** Acesso dinamico — evita o Next/Vercel “congelar” valor vazio no build. */
+function readEnv(name: string): string | undefined {
+  const value = process.env[name];
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 function resolveDatabaseUrl(): string {
-  const url = process.env.DATABASE_URL;
+  const url =
+    readEnv("DATABASE_URL") ||
+    readEnv("POSTGRES_URL") ||
+    readEnv("DATABASE_PUBLIC_URL");
+
   if (!url) {
     throw new Error(
-      "DATABASE_URL nao configurado. Defina em .env.local ou nas variaveis da Vercel/Railway."
+      "DATABASE_URL ausente no runtime. Na Vercel: Settings → Environment Variables → cria DATABASE_URL para Production (e Preview) → Redeploy."
     );
   }
 
@@ -19,7 +31,7 @@ function resolveDatabaseUrl(): string {
     /proxy\.rlwy\.net|railway\.internal/.test(url)
   ) {
     const local =
-      process.env.DATABASE_URL_LOCAL ||
+      readEnv("DATABASE_URL_LOCAL") ||
       url.replace(/@[^/?#]+/, "@127.0.0.1:15432");
     console.warn(
       "[db] DATABASE_URL remoto ignorado em dev; usando",
