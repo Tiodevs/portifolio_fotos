@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createBrowserClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/compress";
-import { savePhotos } from "@/app/admin/actions";
+import { uploadPhotos } from "@/app/admin/actions";
 
 type Status = { type: "idle" | "busy" | "success" | "error"; message: string };
 
@@ -23,23 +22,22 @@ export default function AddPhotosForm({ albumId }: { albumId: string }) {
       return;
     }
     try {
-      const supabase = createBrowserClient();
-      const items: { url: string; width: number; height: number }[] = [];
+      const uploadFd = new FormData();
       for (let i = 0; i < files.length; i++) {
-        setStatus({ type: "busy", message: `Enviando ${i + 1} de ${files.length}...` });
+        setStatus({ type: "busy", message: `Comprimindo ${i + 1} de ${files.length}...` });
         const { blob, width, height } = await compressImage(files[i]);
-        const path = `${albumId}/${crypto.randomUUID()}.webp`;
-        const { error } = await supabase.storage
-          .from("photos")
-          .upload(path, blob, { contentType: "image/webp", upsert: false });
-        if (error) throw new Error(error.message);
-        const url = supabase.storage.from("photos").getPublicUrl(path).data.publicUrl;
-        items.push({ url, width, height });
+        uploadFd.append("photos", blob, `${crypto.randomUUID()}.webp`);
+        uploadFd.append("widths", String(width));
+        uploadFd.append("heights", String(height));
       }
-      const res = await savePhotos(albumId, items);
+      setStatus({ type: "busy", message: "Enviando fotos..." });
+      const res = await uploadPhotos(albumId, uploadFd);
       if (res.error) throw new Error(res.error);
       form.reset();
-      setStatus({ type: "success", message: `${items.length} foto(s) adicionada(s).` });
+      setStatus({
+        type: "success",
+        message: `${res.count ?? files.length} foto(s) adicionada(s).`,
+      });
       router.refresh();
     } catch (err) {
       setStatus({ type: "error", message: err instanceof Error ? err.message : "Erro no upload." });

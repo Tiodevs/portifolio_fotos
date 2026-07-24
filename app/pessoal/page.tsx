@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getAlbums } from "@/lib/albums";
 import AlbumCard from "@/app/components/album-card";
 
+export const dynamic = "force-dynamic";
+
 export default async function PessoalPage() {
   const albums = await getAlbums("personal");
 

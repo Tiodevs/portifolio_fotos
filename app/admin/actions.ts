@@ -2,17 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createAdminClient } from "@/lib/supabase/server";
+import { sql } from "@/lib/db";
+import { removeObject, removeObjects, uploadObject } from "@/lib/storage";
 import type { Photo } from "@/lib/types";
-
-const BUCKET = "photos";
-
-function storagePathFromUrl(url: string): string | null {
-  const marker = `/${BUCKET}/`;
-  const idx = url.indexOf(marker);
-  if (idx === -1) return null;
-  return url.slice(idx + marker.length);
-}
 
 function revalidateAll(albumId?: string) {
   revalidatePath("/");
@@ -28,131 +20,144 @@ export async function createAlbumMeta(input: {
   category: string;
 }): Promise<{ id?: string; error?: string }> {
   try {
-    const supabase = createAdminClient();
     const title = input.title.trim();
     if (!title) return { error: "Informe um titulo." };
     const category = input.category === "personal" ? "personal" : "home";
 
-    const { data, error } = await supabase
-      .from("albums")
-      .insert({
-        title,
-        description: input.description.trim() || null,
-        album_date: input.album_date || null,
-        category,
-      })
-      .select("id")
-      .single();
-    if (error || !data) return { error: error?.message || "Erro ao criar album." };
+    const rows = await sql<{ id: string }[]>`
+      insert into albums (title, description, album_date, category)
+      values (
+        ${title},
+        ${input.description.trim() || null},
+        ${input.album_date || null},
+        ${category}
+      )
+      returning id
+    `;
+    const id = rows[0]?.id;
+    if (!id) return { error: "Erro ao criar album." };
 
-    revalidateAll(data.id);
-    return { id: data.id };
+    revalidateAll(id);
+    return { id };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Erro inesperado." };
   }
 }
 
-export async function savePhotos(
+export async function uploadPhotos(
   albumId: string,
-  items: { url: string; width: number; height: number }[]
-): Promise<{ error?: string }> {
+  formData: FormData
+): Promise<{ error?: string; count?: number }> {
   try {
     if (!albumId) return { error: "Album invalido." };
-    if (items.length === 0) return {};
-    const supabase = createAdminClient();
 
-    const { data: existing } = await supabase
-      .from("photos")
-      .select("sort_order")
-      .eq("album_id", albumId)
-      .order("sort_order", { ascending: false })
-      .limit(1);
-    let order = existing && existing.length > 0 ? existing[0].sort_order + 1 : 0;
+    const files = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
+    const widths = formData.getAll("widths").map((w) => Number(w));
+    const heights = formData.getAll("heights").map((h) => Number(h));
 
-    const rows = items.map((it) => ({
-      album_id: albumId,
-      url: it.url,
-      width: it.width,
-      height: it.height,
-      sort_order: order++,
-    }));
+    if (files.length === 0) return { count: 0 };
 
-    const { error } = await supabase.from("photos").insert(rows);
-    if (error) return { error: error.message };
+    const existing = await sql<{ sort_order: number }[]>`
+      select sort_order from photos
+      where album_id = ${albumId}::uuid
+      order by sort_order desc
+      limit 1
+    `;
+    let order = existing.length > 0 ? existing[0].sort_order + 1 : 0;
 
-    const { data: album } = await supabase
-      .from("albums")
-      .select("cover_url")
-      .eq("id", albumId)
-      .single();
-    if (album && !album.cover_url) {
-      await supabase
-        .from("albums")
-        .update({ cover_url: rows[0].url })
-        .eq("id", albumId);
+    const items: { url: string; width: number | null; height: number | null; sort_order: number }[] =
+      [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const key = `${albumId}/${crypto.randomUUID()}.webp`;
+      const buffer = Buffer.from(await file.arrayBuffer());
+      await uploadObject(key, buffer, file.type || "image/webp");
+      items.push({
+        url: key,
+        width: Number.isFinite(widths[i]) ? widths[i] : null,
+        height: Number.isFinite(heights[i]) ? heights[i] : null,
+        sort_order: order++,
+      });
+    }
+
+    for (const it of items) {
+      await sql`
+        insert into photos (album_id, url, width, height, sort_order)
+        values (
+          ${albumId}::uuid,
+          ${it.url},
+          ${it.width},
+          ${it.height},
+          ${it.sort_order}
+        )
+      `;
+    }
+
+    const albums = await sql<{ cover_url: string | null }[]>`
+      select cover_url from albums where id = ${albumId}::uuid limit 1
+    `;
+    if (albums[0] && !albums[0].cover_url && items[0]) {
+      await sql`
+        update albums set cover_url = ${items[0].url} where id = ${albumId}::uuid
+      `;
     }
 
     revalidateAll(albumId);
-    return {};
+    return { count: items.length };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Erro inesperado." };
   }
 }
 
 export async function updateAlbum(formData: FormData) {
-  const supabase = createAdminClient();
   const id = String(formData.get("id"));
   const title = String(formData.get("title") || "").trim();
   const description = String(formData.get("description") || "").trim();
   const albumDate = String(formData.get("album_date") || "") || null;
-  const category = String(formData.get("category") || "home") as
-    | "home"
-    | "personal";
+  const category = String(formData.get("category") || "home") as "home" | "personal";
   if (!id || !title) return;
 
-  await supabase
-    .from("albums")
-    .update({
-      title,
-      description: description || null,
-      album_date: albumDate,
-      category,
-    })
-    .eq("id", id);
+  await sql`
+    update albums set
+      title = ${title},
+      description = ${description || null},
+      album_date = ${albumDate},
+      category = ${category}
+    where id = ${id}::uuid
+  `;
 
   revalidateAll(id);
   redirect(`/admin/${id}`);
 }
 
 export async function deletePhoto(formData: FormData) {
-  const supabase = createAdminClient();
   const id = String(formData.get("id"));
   const albumId = String(formData.get("album_id"));
-  const url = String(formData.get("url"));
   if (!id) return;
 
-  const path = storagePathFromUrl(url);
-  if (path) await supabase.storage.from(BUCKET).remove([path]);
-  await supabase.from("photos").delete().eq("id", id);
+  const rows = await sql<{ url: string }[]>`
+    select url from photos where id = ${id}::uuid limit 1
+  `;
+  const key = rows[0]?.url;
+  if (key && !key.startsWith("http")) {
+    await removeObject(key);
+  }
 
-  const { data: album } = await supabase
-    .from("albums")
-    .select("cover_url")
-    .eq("id", albumId)
-    .single();
-  if (album && album.cover_url === url) {
-    const { data: remaining } = await supabase
-      .from("photos")
-      .select("url")
-      .eq("album_id", albumId)
-      .order("sort_order", { ascending: true })
-      .limit(1);
-    const newCover =
-      remaining && remaining.length > 0 ? remaining[0].url : null;
-    await supabase
-      .from("albums")
-      .update({ cover_url: newCover })
-      .eq("id", albumId);
+  await sql`delete from photos where id = ${id}::uuid`;
+
+  const albums = await sql<{ cover_url: string | null }[]>`
+    select cover_url from albums where id = ${albumId}::uuid limit 1
+  `;
+  if (albums[0] && albums[0].cover_url === key) {
+    const remaining = await sql<{ url: string }[]>`
+      select url from photos
+      where album_id = ${albumId}::uuid
+      order by sort_order asc
+      limit 1
+    `;
+    const newCover = remaining[0]?.url ?? null;
+    await sql`update albums set cover_url = ${newCover} where id = ${albumId}::uuid`;
   }
 
   revalidateAll(albumId);
@@ -160,28 +165,32 @@ export async function deletePhoto(formData: FormData) {
 }
 
 export async function setCover(formData: FormData) {
-  const supabase = createAdminClient();
   const albumId = String(formData.get("album_id"));
-  const url = String(formData.get("url"));
-  if (!albumId || !url) return;
-  await supabase.from("albums").update({ cover_url: url }).eq("id", albumId);
+  const photoId = String(formData.get("photo_id") || "");
+  if (!albumId || !photoId) return;
+
+  const rows = await sql<{ url: string }[]>`
+    select url from photos where id = ${photoId}::uuid limit 1
+  `;
+  const key = rows[0]?.url;
+  if (!key) return;
+
+  await sql`update albums set cover_url = ${key} where id = ${albumId}::uuid`;
   revalidateAll(albumId);
   redirect(`/admin/${albumId}`);
 }
 
 export async function movePhoto(formData: FormData) {
-  const supabase = createAdminClient();
   const albumId = String(formData.get("album_id"));
   const id = String(formData.get("id"));
   const direction = String(formData.get("direction"));
   if (!albumId || !id) return;
 
-  const { data } = await supabase
-    .from("photos")
-    .select("*")
-    .eq("album_id", albumId)
-    .order("sort_order", { ascending: true });
-  const photos = (data as Photo[]) ?? [];
+  const photos = await sql<Photo[]>`
+    select * from photos
+    where album_id = ${albumId}::uuid
+    order by sort_order asc
+  `;
   const index = photos.findIndex((p) => p.id === id);
   if (index === -1) redirect(`/admin/${albumId}`);
   const swapWith = direction === "up" ? index - 1 : index + 1;
@@ -189,28 +198,24 @@ export async function movePhoto(formData: FormData) {
 
   const a = photos[index];
   const b = photos[swapWith];
-  await supabase.from("photos").update({ sort_order: b.sort_order }).eq("id", a.id);
-  await supabase.from("photos").update({ sort_order: a.sort_order }).eq("id", b.id);
+  await sql`update photos set sort_order = ${b.sort_order} where id = ${a.id}::uuid`;
+  await sql`update photos set sort_order = ${a.sort_order} where id = ${b.id}::uuid`;
 
   revalidateAll(albumId);
   redirect(`/admin/${albumId}`);
 }
 
 export async function deleteAlbum(formData: FormData) {
-  const supabase = createAdminClient();
   const id = String(formData.get("id"));
   if (!id) return;
 
-  const { data: photos } = await supabase
-    .from("photos")
-    .select("url")
-    .eq("album_id", id);
-  const paths = (photos ?? [])
-    .map((p) => storagePathFromUrl(p.url as string))
-    .filter((p): p is string => Boolean(p));
-  if (paths.length > 0) await supabase.storage.from(BUCKET).remove(paths);
+  const photos = await sql<{ url: string }[]>`
+    select url from photos where album_id = ${id}::uuid
+  `;
+  const keys = photos.map((p) => p.url).filter((u) => u && !u.startsWith("http"));
+  if (keys.length > 0) await removeObjects(keys);
 
-  await supabase.from("albums").delete().eq("id", id);
+  await sql`delete from albums where id = ${id}::uuid`;
 
   revalidateAll();
   redirect("/admin");

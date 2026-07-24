@@ -86,7 +86,8 @@ export default async function EditAlbumPage({
           ) : (
             <ul className="grid grid-cols-2 gap-5 sm:grid-cols-3">
               {photos.map((photo, index) => {
-                const isCover = album.cover_url === photo.url;
+                const isCover =
+                  Boolean(album.cover_key) && album.cover_key === photo.storage_key;
                 return (
                   <li key={photo.id} className="group">
                     <div className="relative aspect-square overflow-hidden bg-neutral-200">
@@ -118,7 +119,6 @@ export default async function EditAlbumPage({
                         <ConfirmForm action={deletePhoto} message="Excluir esta foto?">
                           <input type="hidden" name="id" value={photo.id} />
                           <input type="hidden" name="album_id" value={album.id} />
-                          <input type="hidden" name="url" value={photo.url} />
                           <button type="submit" aria-label="Excluir foto" className="flex h-7 w-7 items-center justify-center bg-paper text-red-700 transition hover:bg-white">
                             &times;
                           </button>
@@ -128,7 +128,7 @@ export default async function EditAlbumPage({
                     {!isCover && (
                       <form action={setCover} className="mt-2">
                         <input type="hidden" name="album_id" value={album.id} />
-                        <input type="hidden" name="url" value={photo.url} />
+                        <input type="hidden" name="photo_id" value={photo.id} />
                         <button type="submit" className="w-full border border-line px-2 py-1 text-[10px] uppercase tracking-[0.15em] transition-colors hover:border-ink">
                           Definir capa
                         </button>

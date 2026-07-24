@@ -3,6 +3,8 @@ import { getAlbum } from "@/lib/albums";
 import AlbumGrid from "@/app/components/album-grid";
 import { formatDate } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 export default async function ProjetoPage({
   params,
 }: {
