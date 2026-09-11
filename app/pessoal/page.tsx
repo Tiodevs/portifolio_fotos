@@ -16,8 +16,8 @@ export default async function PessoalPage() {
         </p>
       ) : (
         <div className="grid gap-x-6 gap-y-12 md:grid-cols-2">
-          {albums.map((album) => (
-            <AlbumCard key={album.id} album={album} />
+          {albums.map((album, index) => (
+            <AlbumCard key={album.id} album={album} index={index} />
           ))}
         </div>
       )}

@@ -1,26 +1,33 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { Album } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
+import RevealImage from "@/app/components/reveal-image";
 
-export default function AlbumCard({ album }: { album: Album }) {
+export default function AlbumCard({
+  album,
+  index = 0,
+}: {
+  album: Album;
+  index?: number;
+}) {
   return (
     <Link href={`/projetos/${album.id}`} className="group block">
-      <div className="relative aspect-[4/3] overflow-hidden bg-neutral-200">
-        {album.cover_url ? (
-          <Image
-            src={album.cover_url}
-            alt={album.title}
-            fill
-            sizes="(max-width: 768px) 100vw, 50vw"
-            className="object-cover transition duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-neutral-500">
-            Sem foto
-          </div>
-        )}
-      </div>
+      {album.cover_url ? (
+        <RevealImage
+          src={album.cover_url}
+          alt={album.title}
+          width={4}
+          height={3}
+          sizes="(max-width: 768px) 100vw, 50vw"
+          delay={Math.min(index * 0.06, 0.3)}
+          priority={index < 4}
+          className="transition duration-500 group-hover:scale-105"
+        />
+      ) : (
+        <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-line text-sm text-neutral-500">
+          Sem foto
+        </div>
+      )}
       <div className="mt-3">
         {album.album_date && (
           <p className="text-xs text-neutral-500">{formatDate(album.album_date)}</p>

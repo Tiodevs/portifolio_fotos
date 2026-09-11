@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import MenuOverlay from "@/app/components/menu-overlay";
 
 export default function SiteHeader() {
   const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
 
   return (
     <>
@@ -15,13 +16,16 @@ export default function SiteHeader() {
         </Link>
         <button
           type="button"
+          aria-expanded={open}
+          aria-controls="site-menu"
+          aria-label="Abrir menu"
           onClick={() => setOpen(true)}
           className="display text-lg transition-opacity hover:opacity-60"
         >
           MENU
         </button>
       </header>
-      <MenuOverlay open={open} onClose={() => setOpen(false)} />
+      <MenuOverlay open={open} onClose={close} />
     </>
   );
 }
