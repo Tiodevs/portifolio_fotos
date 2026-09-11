@@ -24,3 +24,15 @@ export interface Photo {
   width: number | null;
   height: number | null;
 }
+
+export interface ContactInquiry {
+  id: string;
+  name: string;
+  event_type: string;
+  event_date: string | null;
+  shift: string;
+  phone: string;
+  notes: string | null;
+  read_at: string | null;
+  created_at: string;
+}

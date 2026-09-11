@@ -11,12 +11,18 @@ export default async function Home() {
     <div>
       <section className="px-6 pt-8 pb-16 md:px-10">
         <h1 className="display text-[15vw] leading-[0.85] md:text-[5vw]">
-        Felipe Santos, Fotos
+          Portfólio de fotos
         </h1>
         <div className="mt-10 max-w-xl space-y-8">
           <p className="text-lg leading-relaxed">
           Hi! Sou fotógrafo e eternizo os maiores momento das pessoas atravez da fotografia. Porque cada grande história merece ser lembrada.
           </p>
+          <Link
+            href="/contato"
+            className="inline-block text-sm uppercase tracking-[0.2em] underline underline-offset-4 hover:opacity-60"
+          >
+            Entre em contato
+          </Link>
           <div className="space-y-1 text-sm uppercase tracking-wide">
             <p>santospefelipe@gmail.com</p>
             <p>Brasil, Curitiba</p>
@@ -35,8 +41,8 @@ export default async function Home() {
           </p>
         ) : (
           <div className="grid gap-x-6 gap-y-12 md:grid-cols-2">
-            {albums.map((album) => (
-              <AlbumCard key={album.id} album={album} />
+            {albums.map((album, index) => (
+              <AlbumCard key={album.id} album={album} index={index} />
             ))}
           </div>
         )}

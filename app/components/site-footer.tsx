@@ -1,10 +1,14 @@
+import Link from "next/link";
+
 export default function SiteFooter() {
   return (
     <footer className="mt-24 border-t border-line px-6 py-16 md:px-10">
       <p className="mb-8 text-sm tracking-[0.2em] text-neutral-500">
-        ENTRE EM CONTATO PARA MAIS
+        <Link href="/contato" className="hover:opacity-60">
+          ENTRE EM CONTATO PARA MAIS
+        </Link>
       </p>
-      <h2 className="display mb-12 text-5xl md:text-8xl">Felipe Santos</h2>
+      <h2 className="display mb-12 text-4xl sm:text-5xl md:text-8xl">Felipe Santos</h2>
       <div className="flex flex-col justify-between gap-8 text-sm md:flex-row">
         <div className="space-y-1">
           <p>santospefelipe@gmail.com</p>

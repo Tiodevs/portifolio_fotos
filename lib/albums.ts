@@ -1,5 +1,6 @@
 import { sql } from "@/lib/db";
 import { presignObject, presignMany } from "@/lib/storage";
+import { toDateInputValue } from "@/lib/utils";
 import type { Album, Category, Photo } from "@/lib/types";
 
 type AlbumRow = Omit<Album, "cover_key"> & { cover_url: string | null };
@@ -8,6 +9,7 @@ type PhotoRow = Omit<Photo, "storage_key">;
 async function signAlbum(row: AlbumRow): Promise<Album> {
   return {
     ...row,
+    album_date: toDateInputValue(row.album_date) || null,
     cover_key: row.cover_url,
     cover_url: await presignObject(row.cover_url),
   };
