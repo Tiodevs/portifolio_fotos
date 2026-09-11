@@ -61,10 +61,44 @@ function getSql(): Sql {
   return globalForDb.sql;
 }
 
+function isTransientConnError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = (err as { code?: string }).code;
+  return (
+    code === "ECONNREFUSED" ||
+    code === "ECONNRESET" ||
+    code === "ETIMEDOUT" ||
+    code === "EBADF"
+  );
+}
+
+async function resetSql(): Promise<void> {
+  const existing = globalForDb.sql;
+  globalForDb.sql = undefined;
+  if (!existing) return;
+  try {
+    await existing.end({ timeout: 1 });
+  } catch {
+    // cliente morto — ignora
+  }
+}
+
+async function withSqlRetry<T>(run: (client: Sql) => T): Promise<T> {
+  try {
+    return await run(getSql());
+  } catch (err) {
+    if (!isTransientConnError(err)) throw err;
+    await resetSql();
+    return await run(getSql());
+  }
+}
+
 /** Lazy client — nao exige DATABASE_URL no import (build da Vercel). */
 export const sql: Sql = new Proxy(function sqlTag() {} as unknown as Sql, {
   apply(_target, _thisArg, args) {
-    return Reflect.apply(getSql() as unknown as Function, getSql(), args);
+    return withSqlRetry((client) =>
+      Reflect.apply(client as unknown as Function, client, args),
+    );
   },
   get(_target, prop, _receiver) {
     const client = getSql() as unknown as Record<PropertyKey, unknown>;
