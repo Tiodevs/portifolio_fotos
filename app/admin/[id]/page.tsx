@@ -24,9 +24,9 @@ export default async function EditAlbumPage({
   const { album, photos } = data;
 
   return (
-    <div className="px-6 py-16 md:px-10">
-      <header className="mb-16 border-b border-line pb-10">
-        <div className="mb-4 flex items-center justify-between">
+    <div className="min-w-0 px-6 py-12 md:px-10 md:py-16">
+      <header className="mb-12 border-b border-line pb-8 md:mb-16 md:pb-10">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link href="/admin" className="text-xs uppercase tracking-[0.2em] underline underline-offset-4 hover:opacity-60">
             Voltar
           </Link>
@@ -34,12 +34,12 @@ export default async function EditAlbumPage({
             Ver pagina
           </Link>
         </div>
-        <p className="mb-3 text-xs uppercase tracking-[0.3em] text-neutral-500">Editando album</p>
-        <h1 className="display text-5xl md:text-7xl">{album.title}</h1>
+        <p className="mb-3 text-xs uppercase tracking-[0.2em] text-neutral-500 md:tracking-[0.3em]">Editando album</p>
+        <h1 className="display break-words text-4xl sm:text-5xl md:text-7xl">{album.title}</h1>
       </header>
 
-      <div className="grid gap-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-        <div className="space-y-16">
+      <div className="grid min-w-0 gap-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+        <div className="space-y-16 min-w-0">
           <section>
             <h2 className="mb-6 text-xs uppercase tracking-[0.3em] text-neutral-500">Dados do album</h2>
             <form action={updateAlbum} className="space-y-6">
@@ -77,21 +77,21 @@ export default async function EditAlbumPage({
           </section>
         </div>
 
-        <section>
+        <section className="min-w-0">
           <h2 className="mb-6 text-xs uppercase tracking-[0.3em] text-neutral-500">Fotos ({photos.length})</h2>
           {photos.length === 0 ? (
             <p className="border border-dashed border-line px-6 py-12 text-center text-neutral-500">
               Nenhuma foto ainda. Adicione ao lado.
             </p>
           ) : (
-            <ul className="grid grid-cols-2 gap-5 sm:grid-cols-3">
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5">
               {photos.map((photo, index) => {
                 const isCover =
                   Boolean(album.cover_key) && album.cover_key === photo.storage_key;
                 return (
                   <li key={photo.id} className="group">
                     <div className="relative aspect-square overflow-hidden bg-neutral-200">
-                      <Image src={photo.url} alt="" fill sizes="200px" className="object-cover" />
+                      <Image src={photo.url} alt="" fill sizes="200px" unoptimized className="object-cover" />
                       {isCover && (
                         <span className="absolute left-2 top-2 bg-ink px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-paper">
                           Capa
@@ -129,7 +129,7 @@ export default async function EditAlbumPage({
                       <form action={setCover} className="mt-2">
                         <input type="hidden" name="album_id" value={album.id} />
                         <input type="hidden" name="photo_id" value={photo.id} />
-                        <button type="submit" className="w-full border border-line px-2 py-1 text-[10px] uppercase tracking-[0.15em] transition-colors hover:border-ink">
+                        <button type="submit" className="w-full border border-line px-2 py-1 text-[10px] uppercase tracking-[0.12em] transition-colors hover:border-ink">
                           Definir capa
                         </button>
                       </form>

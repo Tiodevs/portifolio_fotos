@@ -51,7 +51,7 @@ export default function AddPhotosForm({ albumId }: { albumId: string }) {
         name="photos"
         multiple
         accept="image/*"
-        className="block w-full text-sm text-neutral-600 file:mr-4 file:cursor-pointer file:border file:border-ink file:bg-transparent file:px-4 file:py-2 file:text-xs file:uppercase file:tracking-[0.15em] hover:file:bg-ink hover:file:text-paper"
+        className="block w-full min-w-0 max-w-full text-sm text-neutral-600 file:mb-2 file:mr-0 file:block file:cursor-pointer file:border file:border-ink file:bg-transparent file:px-4 file:py-2 file:text-xs file:uppercase file:tracking-[0.15em] sm:file:mb-0 sm:file:mr-4 sm:file:inline-block hover:file:bg-ink hover:file:text-paper"
       />
       <button
         type="submit"

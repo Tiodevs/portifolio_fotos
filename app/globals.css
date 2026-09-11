@@ -9,6 +9,7 @@
 html,
 body {
   height: 100%;
+  overflow-x: clip;
 }
 
 body {
@@ -20,6 +21,8 @@ body {
 
 .site-frame {
   max-width: 1200px;
+  width: 100%;
+  min-width: 0;
   margin-inline: auto;
   min-height: 100vh;
   display: flex;
@@ -29,6 +32,7 @@ body {
 
 .site-frame > main {
   flex: 1;
+  min-width: 0;
 }
 
 .display {
